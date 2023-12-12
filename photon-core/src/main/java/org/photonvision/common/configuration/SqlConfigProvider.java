@@ -51,10 +51,10 @@ public class SqlConfigProvider extends ConfigProvider {
         static final String CAM_UNIQUE_NAME = "unique_name";
         static final String CONFIG_JSON = "config_json";
         static final String DRIVERMODE_JSON = "drivermode_json";
-        static final String OTHERPATHS_JSON = "otherpaths_json";
         static final String PIPELINE_JSONS = "pipeline_jsons";
 
         static final String NETWORK_CONFIG = "networkConfig";
+        static final String UDEV_CONFIG = "udevConfig";
         static final String HARDWARE_CONFIG = "hardwareConfig";
         static final String HARDWARE_SETTINGS = "hardwareSettings";
         static final String ATFL_CONFIG_FILE = "apriltagFieldLayout";
@@ -148,7 +148,6 @@ public class SqlConfigProvider extends ConfigProvider {
                                 + " unique_name TINYTEXT PRIMARY KEY,\n"
                                 + " config_json text NOT NULL,\n"
                                 + " drivermode_json text NOT NULL,\n"
-                                + " otherpaths_json text NOT NULL,\n"
                                 + " pipeline_jsons mediumtext NOT NULL\n"
                                 + ");";
                 createCameraTableStatement.execute(sql);
@@ -207,6 +206,7 @@ public class SqlConfigProvider extends ConfigProvider {
             HardwareConfig hardwareConfig;
             HardwareSettings hardwareSettings;
             NetworkConfig networkConfig;
+            UdevConfig udevConfig;
             AprilTagFieldLayout atfl;
 
             try {
@@ -237,6 +237,16 @@ public class SqlConfigProvider extends ConfigProvider {
             }
 
             try {
+                udevConfig =
+                        JacksonUtils.deserialize(
+                                getOneConfigFile(conn, TableKeys.UDEV_CONFIG), UdevConfig.class);
+                System.err.println(getOneConfigFile(conn, TableKeys.UDEV_CONFIG));
+            } catch (IOException e) {
+                logger.error("Could not deserialize udev config! Loading defaults");
+                udevConfig = new UdevConfig();
+            }
+
+            try {
                 atfl =
                         JacksonUtils.deserialize(
                                 getOneConfigFile(conn, TableKeys.ATFL_CONFIG_FILE), AprilTagFieldLayout.class);
@@ -264,7 +274,7 @@ public class SqlConfigProvider extends ConfigProvider {
             }
 
             this.config =
-                    new PhotonConfiguration(hardwareConfig, hardwareSettings, networkConfig, atfl, cams);
+                    new PhotonConfiguration(hardwareConfig, hardwareSettings, networkConfig, udevConfig, atfl, cams);
         }
     }
 
@@ -297,8 +307,8 @@ public class SqlConfigProvider extends ConfigProvider {
         try {
             // Replace this camera's row with the new settings
             var sqlString =
-                    "REPLACE INTO cameras (unique_name, config_json, drivermode_json, otherpaths_json, pipeline_jsons) VALUES "
-                            + "(?,?,?,?,?);";
+                    "REPLACE INTO cameras (unique_name, config_json, drivermode_json, pipeline_jsons) VALUES "
+                            + "(?,?,?,?);";
 
             for (var c : config.getCameraConfigurations().entrySet()) {
                 PreparedStatement statement = conn.prepareStatement(sqlString);
@@ -307,7 +317,6 @@ public class SqlConfigProvider extends ConfigProvider {
                 statement.setString(1, c.getKey());
                 statement.setString(2, JacksonUtils.serializeToString(config));
                 statement.setString(3, JacksonUtils.serializeToString(config.driveModeSettings));
-                statement.setString(4, JacksonUtils.serializeToString(config.otherPaths));
 
                 // Serializing a list of abstract classes sucks. Instead, make it into an array
                 // of strings, which we can later unpack back into individual settings
@@ -324,7 +333,7 @@ public class SqlConfigProvider extends ConfigProvider {
                                         })
                                 .filter(Objects::nonNull)
                                 .collect(Collectors.toList());
-                statement.setString(5, JacksonUtils.serializeToString(settings));
+                statement.setString(4, JacksonUtils.serializeToString(settings));
 
                 statement.executeUpdate();
             }
@@ -347,6 +356,7 @@ public class SqlConfigProvider extends ConfigProvider {
         PreparedStatement statement1 = null;
         PreparedStatement statement2 = null;
         PreparedStatement statement3 = null;
+        PreparedStatement statement4 = null;
         try {
             // Replace this camera's row with the new settings
             var sqlString = "REPLACE INTO global (filename, contents) VALUES " + "(?,?);";
@@ -369,10 +379,18 @@ public class SqlConfigProvider extends ConfigProvider {
             statement3 = conn.prepareStatement(sqlString);
             addFile(
                     statement3,
-                    TableKeys.HARDWARE_CONFIG,
-                    JacksonUtils.serializeToString(config.getHardwareConfig()));
+                    TableKeys.UDEV_CONFIG,
+                    JacksonUtils.serializeToString(config.getUdevConfig()));
             statement3.executeUpdate();
             statement3.close();
+
+            statement4 = conn.prepareStatement(sqlString);
+            addFile(
+                    statement4,
+                    TableKeys.HARDWARE_CONFIG,
+                    JacksonUtils.serializeToString(config.getHardwareConfig()));
+            statement4.executeUpdate();
+            statement4.close();
 
         } catch (SQLException | IOException e) {
             logger.error("Err saving global", e);
@@ -386,6 +404,7 @@ public class SqlConfigProvider extends ConfigProvider {
                 if (statement1 != null) statement1.close();
                 if (statement2 != null) statement2.close();
                 if (statement3 != null) statement3.close();
+                if (statement4 != null) statement4.close();
             } catch (SQLException e) {
                 logger.error("SQL Err closing global settings query ", e);
             }
@@ -445,6 +464,11 @@ public class SqlConfigProvider extends ConfigProvider {
     }
 
     @Override
+    public boolean saveUploadedUdevConfig(Path uploadPath) {
+        return saveOneFile(TableKeys.UDEV_CONFIG, uploadPath);
+    }
+
+    @Override
     public boolean saveUploadedAprilTagFieldLayout(Path uploadPath) {
         return saveOneFile(TableKeys.ATFL_CONFIG_FILE, uploadPath);
     }
@@ -458,11 +482,10 @@ public class SqlConfigProvider extends ConfigProvider {
             query =
                     conn.prepareStatement(
                             String.format(
-                                    "SELECT %s, %s, %s, %s, %s FROM cameras",
+                                    "SELECT %s, %s, %s, %s FROM cameras",
                                     TableKeys.CAM_UNIQUE_NAME,
                                     TableKeys.CONFIG_JSON,
                                     TableKeys.DRIVERMODE_JSON,
-                                    TableKeys.OTHERPATHS_JSON,
                                     TableKeys.PIPELINE_JSONS));
 
             var result = query.executeQuery();
@@ -478,8 +501,6 @@ public class SqlConfigProvider extends ConfigProvider {
                 var driverMode =
                         JacksonUtils.deserialize(
                                 result.getString(TableKeys.DRIVERMODE_JSON), DriverModePipelineSettings.class);
-                var otherPaths =
-                        JacksonUtils.deserialize(result.getString(TableKeys.OTHERPATHS_JSON), String[].class);
                 List<?> pipelineSettings =
                         JacksonUtils.deserialize(
                                 result.getString(TableKeys.PIPELINE_JSONS), dummyList.getClass());
@@ -493,7 +514,6 @@ public class SqlConfigProvider extends ConfigProvider {
 
                 config.pipelineSettings = loadedSettings;
                 config.driveModeSettings = driverMode;
-                config.otherPaths = otherPaths;
                 loadedConfigurations.put(uniqueName, config);
             }
         } catch (SQLException | IOException e) {

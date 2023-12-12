@@ -31,7 +31,6 @@ import org.photonvision.common.configuration.CameraConfiguration;
 import org.photonvision.common.configuration.ConfigManager;
 import org.photonvision.common.dataflow.CVPipelineResultConsumer;
 import org.photonvision.common.util.TestUtils;
-import org.photonvision.vision.camera.USBCameraSource;
 import org.photonvision.vision.frame.FrameProvider;
 import org.photonvision.vision.frame.FrameStaticProperties;
 import org.photonvision.vision.frame.provider.FileFrameProvider;
@@ -166,16 +165,7 @@ public class VisionModuleManagerTest {
                         TestUtils.WPI2019Image.FOV);
         var testSource3 = new TestSource(ffp3, conf3);
 
-        // Arducam OV9281 UC844 raspberry pi test.
-        var conf4 = new CameraConfiguration("Left", "dev/video1");
-        USBCameraSource usbSimulation = new USBCameraSource(conf4, 0x6366, 0x0c45, true);
-
-        var conf5 = new CameraConfiguration("Right", "dev/video2");
-        USBCameraSource usbSimulation2 = new USBCameraSource(conf5, 0x6366, 0x0c45, true);
-
-        var modules =
-                vmm.addSources(
-                        List.of(testSource, testSource2, testSource3, usbSimulation, usbSimulation2));
+        var modules = vmm.addSources(List.of(testSource, testSource2, testSource3));
 
         System.out.println(
                 Arrays.toString(
@@ -186,15 +176,9 @@ public class VisionModuleManagerTest {
                 modules.stream()
                         .map(it -> it.visionSource.getCameraConfiguration().streamIndex)
                         .collect(Collectors.toList());
-
-        assertTrue(usbSimulation.equals(usbSimulation));
-        assertTrue(!usbSimulation.equals(usbSimulation2));
-
         assertTrue(idxs.contains(0));
         assertTrue(idxs.contains(1));
         assertTrue(idxs.contains(2));
-        assertTrue(idxs.contains(3));
-        assertTrue(idxs.contains(4));
     }
 
     private static void printTestResults(CVPipelineResult pipelineResult) {

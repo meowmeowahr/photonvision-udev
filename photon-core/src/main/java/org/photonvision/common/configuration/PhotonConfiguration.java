@@ -36,6 +36,7 @@ public class PhotonConfiguration {
     private final HardwareConfig hardwareConfig;
     private final HardwareSettings hardwareSettings;
     private NetworkConfig networkConfig;
+    private UdevConfig udevConfig;
     private AprilTagFieldLayout atfl;
     private HashMap<String, CameraConfiguration> cameraConfigurations;
 
@@ -43,19 +44,22 @@ public class PhotonConfiguration {
             HardwareConfig hardwareConfig,
             HardwareSettings hardwareSettings,
             NetworkConfig networkConfig,
+            UdevConfig udevConfig,
             AprilTagFieldLayout atfl) {
-        this(hardwareConfig, hardwareSettings, networkConfig, atfl, new HashMap<>());
+        this(hardwareConfig, hardwareSettings, networkConfig, udevConfig, atfl, new HashMap<>());
     }
 
     public PhotonConfiguration(
             HardwareConfig hardwareConfig,
             HardwareSettings hardwareSettings,
             NetworkConfig networkConfig,
+            UdevConfig udevConfig,
             AprilTagFieldLayout atfl,
             HashMap<String, CameraConfiguration> cameraConfigurations) {
         this.hardwareConfig = hardwareConfig;
         this.hardwareSettings = hardwareSettings;
         this.networkConfig = networkConfig;
+        this.udevConfig = udevConfig;
         this.cameraConfigurations = cameraConfigurations;
         this.atfl = atfl;
     }
@@ -65,6 +69,7 @@ public class PhotonConfiguration {
                 new HardwareConfig(),
                 new HardwareSettings(),
                 new NetworkConfig(),
+                new UdevConfig(),
                 new AprilTagFieldLayout(List.of(), 0, 0));
     }
 
@@ -74,6 +79,10 @@ public class PhotonConfiguration {
 
     public NetworkConfig getNetworkConfig() {
         return networkConfig;
+    }
+
+    public UdevConfig getUdevConfig() {
+        return udevConfig;
     }
 
     public HardwareSettings getHardwareSettings() {
@@ -90,6 +99,10 @@ public class PhotonConfiguration {
 
     public void setNetworkConfig(NetworkConfig networkConfig) {
         this.networkConfig = networkConfig;
+    }
+
+    public void setUdevConfig(UdevConfig udevConfig) {
+        this.udevConfig = udevConfig;
     }
 
     public HashMap<String, CameraConfiguration> getCameraConfigurations() {

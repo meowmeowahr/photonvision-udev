@@ -48,12 +48,14 @@ class LegacyConfigProvider extends ConfigProvider {
     public static final String HW_CFG_FNAME = "hardwareConfig.json";
     public static final String HW_SET_FNAME = "hardwareSettings.json";
     public static final String NET_SET_FNAME = "networkSettings.json";
+    public static final String UDEV_SET_NAME = "udevSettings.json";
     public static final String ATFL_SET_FNAME = "apriltagFieldLayout.json";
 
     private PhotonConfiguration config;
     private final File hardwareConfigFile;
     private final File hardwareSettingsFile;
     private final File networkConfigFile;
+    private final File udevConfigFile;
     private final File camerasFolder;
     private final File apriltagFieldLayoutFile;
 
@@ -91,6 +93,8 @@ class LegacyConfigProvider extends ConfigProvider {
                 new File(Path.of(configDirectoryFile.toString(), HW_SET_FNAME).toUri());
         this.networkConfigFile =
                 new File(Path.of(configDirectoryFile.toString(), NET_SET_FNAME).toUri());
+        this.udevConfigFile =
+                new File(Path.of(configDirectoryFile.toString(), UDEV_SET_NAME).toUri());
         this.apriltagFieldLayoutFile =
                 new File(Path.of(configDirectoryFile.toString(), ATFL_SET_FNAME).toUri());
         this.camerasFolder = new File(Path.of(configDirectoryFile.toString(), "cameras").toUri());
@@ -123,6 +127,7 @@ class LegacyConfigProvider extends ConfigProvider {
         HardwareConfig hardwareConfig;
         HardwareSettings hardwareSettings;
         NetworkConfig networkConfig;
+        UdevConfig udevConfig;
         AprilTagFieldLayout atfl = null;
 
         if (hardwareConfigFile.exists()) {
@@ -175,6 +180,22 @@ class LegacyConfigProvider extends ConfigProvider {
             networkConfig = new NetworkConfig();
         }
 
+        if (udevConfigFile.exists()) {
+            try {
+                udevConfig = JacksonUtils.deserialize(udevConfigFile.toPath(), UdevConfig.class);
+                if (udevConfig == null) {
+                    logger.error("Could not deserialize udev config! Loading defaults");
+                    udevConfig = new UdevConfig();
+                }
+            } catch (IOException e) {
+                logger.error("Could not deserialize udev config! Loading defaults");
+                udevConfig = new UdevConfig();
+            }
+        } else {
+            logger.info("Udev config file does not exist! Loading defaults");
+            udevConfig = new UdevConfig();
+        }
+
         if (!camerasFolder.exists()) {
             if (camerasFolder.mkdirs()) {
                 logger.debug("Cameras config folder did not exist. Created!");
@@ -214,7 +235,7 @@ class LegacyConfigProvider extends ConfigProvider {
 
         this.config =
                 new PhotonConfiguration(
-                        hardwareConfig, hardwareSettings, networkConfig, atfl, cameraConfigurations);
+                        hardwareConfig, hardwareSettings, networkConfig, udevConfig, atfl, cameraConfigurations);
     }
 
     @Override
@@ -226,6 +247,13 @@ class LegacyConfigProvider extends ConfigProvider {
             JacksonUtils.serialize(networkConfigFile.toPath(), config.getNetworkConfig());
         } catch (IOException e) {
             logger.error("Could not save network config!", e);
+        }
+        try {
+            System.err.println(udevConfigFile.toPath().toString());
+            System.err.println(config.getUdevConfig());
+            JacksonUtils.serialize(udevConfigFile.toPath(), config.getUdevConfig());
+        } catch (IOException e) {
+            logger.error("Could not save udev config!", e);
         }
         try {
             JacksonUtils.serialize(hardwareSettingsFile.toPath(), config.getHardwareSettings());
@@ -435,6 +463,10 @@ class LegacyConfigProvider extends ConfigProvider {
         return this.networkConfigFile.toPath();
     }
 
+    public Path getUdevConfigFile() {
+        return this.udevConfigFile.toPath();
+    }
+
     public Path getAprilTagFieldLayoutFile() {
         return this.apriltagFieldLayoutFile.toPath();
     }
@@ -452,6 +484,11 @@ class LegacyConfigProvider extends ConfigProvider {
     @Override
     public boolean saveUploadedNetworkConfig(Path uploadPath) {
         return FileUtils.replaceFile(uploadPath, this.getNetworkConfigFile());
+    }
+
+    @Override
+    public boolean saveUploadedUdevConfig(Path uploadPath) {
+        return FileUtils.replaceFile(uploadPath, this.getUdevConfigFile());
     }
 
     @Override

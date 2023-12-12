@@ -73,16 +73,6 @@ public class CameraConfiguration {
         this.path = path;
         this.calibrations = new ArrayList<>();
         this.otherPaths = alternates;
-
-        logger.debug(
-                "Creating USB camera configuration for "
-                        + cameraType
-                        + " "
-                        + baseName
-                        + " (AKA "
-                        + nickname
-                        + ") at "
-                        + path);
     }
 
     @JsonCreator
