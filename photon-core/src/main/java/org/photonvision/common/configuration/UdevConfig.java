@@ -26,7 +26,7 @@ import org.photonvision.common.util.file.JacksonUtils;
 
 public class UdevConfig {
     // Can be an integer team number, or an IP address
-    public String allowedRegex = "video-port\\d";
+    public String allowedRegex = "video-pv\\d";
     public String udevDir = "/dev";
     public String newCameraPrefix = "Camera_at_";
 
